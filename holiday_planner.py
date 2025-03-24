@@ -7,6 +7,19 @@ import json
 import os
 from datetime import date
 import hashlib
+from decimal import Decimal
+
+# Exchange rates (you could update these or use an API)
+EXCHANGE_RATES = {
+    'USD': 1.0,
+    'GBP': Decimal('0.79')  # Example rate USD to GBP
+}
+
+def convert_currency(amount, target_currency):
+    """Convert amount from USD to target currency"""
+    if target_currency == 'USD':
+        return amount
+    return Decimal(str(amount)) * EXCHANGE_RATES[target_currency]
 
 # Function to hash passwords
 def hash_password(password):
@@ -154,6 +167,16 @@ def main():
     if 'holiday_plans' not in st.session_state:
         st.session_state.holiday_plans = load_from_json(st.session_state.username)
     
+    # Add currency selector in the sidebar
+    st.sidebar.header("Settings")
+    selected_currency = st.sidebar.selectbox(
+        "Select Currency",
+        options=['USD', 'GBP'],
+        index=0
+    )
+    
+    currency_symbol = '$' if selected_currency == 'USD' else '£'
+    
     # Add logout button
     col1, col2 = st.columns([8, 2])
     with col1:
@@ -177,10 +200,10 @@ def main():
             end_date = st.date_input("End Date")
         
         with col2:
-            travel_cost = st.number_input("Travel Cost", min_value=0.0, value=0.0)
-            accommodation_cost = st.number_input("Accommodation Cost", min_value=0.0, value=0.0)
-            experiences_cost = st.number_input("Experiences Cost", min_value=0.0, value=0.0)
-            misc_cost = st.number_input("Miscellaneous Cost", min_value=0.0, value=0.0)
+            travel_cost = st.number_input("Travel Cost (USD)", min_value=0.0, value=0.0)
+            accommodation_cost = st.number_input("Accommodation Cost (USD)", min_value=0.0, value=0.0)
+            experiences_cost = st.number_input("Experiences Cost (USD)", min_value=0.0, value=0.0)
+            misc_cost = st.number_input("Miscellaneous Cost (USD)", min_value=0.0, value=0.0)
         
         submit_button = st.form_submit_button("Add Holiday Plan")
         
@@ -201,13 +224,18 @@ def main():
                 
                 with col1:
                     st.write("**Duration:**", (plan['end_date'] - plan['start_date']).days + 1, "days")
-                    st.write("**Travel Cost:** $", plan['travel_cost'])
-                    st.write("**Accommodation Cost:** $", plan['accommodation_cost'])
+                    st.write(f"**Travel Cost:** {currency_symbol}", 
+                            f"{convert_currency(plan['travel_cost'], selected_currency):,.2f}")
+                    st.write(f"**Accommodation Cost:** {currency_symbol}", 
+                            f"{convert_currency(plan['accommodation_cost'], selected_currency):,.2f}")
                 
                 with col2:
-                    st.write("**Experiences Cost:** $", plan['experiences_cost'])
-                    st.write("**Miscellaneous Cost:** $", plan['misc_cost'])
-                    st.write("**Total Cost:** $", plan['total_cost'])
+                    st.write(f"**Experiences Cost:** {currency_symbol}", 
+                            f"{convert_currency(plan['experiences_cost'], selected_currency):,.2f}")
+                    st.write(f"**Miscellaneous Cost:** {currency_symbol}", 
+                            f"{convert_currency(plan['misc_cost'], selected_currency):,.2f}")
+                    st.write(f"**Total Cost:** {currency_symbol}", 
+                            f"{convert_currency(plan['total_cost'], selected_currency):,.2f}")
                 
                 if st.button("Remove Plan", key=f"remove_{plan_id}"):
                     remove_holiday_plan(plan_id)
@@ -216,40 +244,42 @@ def main():
         # Display summary statistics
         st.header("Summary Statistics")
         total_budget = sum(plan['total_cost'] for plan in st.session_state.holiday_plans.values())
+        total_budget_converted = convert_currency(total_budget, selected_currency)
         total_trips = len(st.session_state.holiday_plans)
         
         col1, col2, col3 = st.columns(3)
         col1.metric("Total Trips Planned", total_trips)
-        col2.metric("Total Budget", f"${total_budget:,.2f}")
+        col2.metric("Total Budget", f"{currency_symbol}{total_budget_converted:,.2f}")
         if total_trips > 0:
-            col3.metric("Average Cost per Trip", f"${total_budget/total_trips:,.2f}")
+            avg_cost = total_budget_converted / total_trips
+            col3.metric("Average Cost per Trip", f"{currency_symbol}{avg_cost:,.2f}")
 
         # Display budget breakdown pie chart
         if st.session_state.holiday_plans:
             st.subheader("Budget Breakdown")
             budget_data = {
-                'Travel': sum(plan['travel_cost'] for plan in st.session_state.holiday_plans.values()),
-                'Accommodation': sum(plan['accommodation_cost'] for plan in st.session_state.holiday_plans.values()),
-                'Experiences': sum(plan['experiences_cost'] for plan in st.session_state.holiday_plans.values()),
-                'Miscellaneous': sum(plan['misc_cost'] for plan in st.session_state.holiday_plans.values())
+                'Travel': sum(convert_currency(plan['travel_cost'], selected_currency) 
+                            for plan in st.session_state.holiday_plans.values()),
+                'Accommodation': sum(convert_currency(plan['accommodation_cost'], selected_currency) 
+                                  for plan in st.session_state.holiday_plans.values()),
+                'Experiences': sum(convert_currency(plan['experiences_cost'], selected_currency) 
+                                 for plan in st.session_state.holiday_plans.values()),
+                'Miscellaneous': sum(convert_currency(plan['misc_cost'], selected_currency) 
+                                   for plan in st.session_state.holiday_plans.values())
             }
             
             fig_data = pd.DataFrame(list(budget_data.items()), columns=['Category', 'Amount'])
             
-            # Create pie chart using plotly express
             fig = px.pie(fig_data, 
                         values='Amount', 
                         names='Category',
-                        title='Budget Distribution')
+                        title=f'Budget Distribution ({selected_currency})')
             
-            # Display the chart in Streamlit
             st.plotly_chart(fig)
 
-                    # Display treemap visualization
-        if st.session_state.holiday_plans:
+            # Display treemap visualization
             st.subheader("Holiday Plans Treemap")
             
-            # Prepare data for treemap
             treemap_data = []
             for plan_id, plan in st.session_state.holiday_plans.items():
                 # Add travel cost
@@ -257,47 +287,44 @@ def main():
                     treemap_data.append({
                         'Holiday': plan['name'],
                         'Category': 'Travel',
-                        'Cost': plan['travel_cost']
+                        'Cost': float(convert_currency(plan['travel_cost'], selected_currency))
                     })
                 # Add accommodation cost
                 if plan['accommodation_cost'] > 0:
                     treemap_data.append({
                         'Holiday': plan['name'],
                         'Category': 'Accommodation',
-                        'Cost': plan['accommodation_cost']
+                        'Cost': float(convert_currency(plan['accommodation_cost'], selected_currency))
                     })
                 # Add experiences cost
                 if plan['experiences_cost'] > 0:
                     treemap_data.append({
                         'Holiday': plan['name'],
                         'Category': 'Experiences',
-                        'Cost': plan['experiences_cost']
+                        'Cost': float(convert_currency(plan['experiences_cost'], selected_currency))
                     })
                 # Add miscellaneous cost
                 if plan['misc_cost'] > 0:
                     treemap_data.append({
                         'Holiday': plan['name'],
                         'Category': 'Miscellaneous',
-                        'Cost': plan['misc_cost']
+                        'Cost': float(convert_currency(plan['misc_cost'], selected_currency))
                     })
             
-            # Create DataFrame for treemap
             df_treemap = pd.DataFrame(treemap_data)
             
-            # Create treemap
             fig_treemap = px.treemap(
                 df_treemap,
                 path=[px.Constant("All Holidays"), 'Holiday', 'Category'],
                 values='Cost',
-                title='Holiday Expenses Breakdown',
+                title=f'Holiday Expenses Breakdown ({selected_currency})',
                 color='Cost',
                 color_continuous_scale='Viridis',
                 custom_data=['Cost']
             )
             
-            # Update layout and hover template
             fig_treemap.update_traces(
-                hovertemplate='<b>%{label}</b><br>Cost: $%{customdata[0]:,.2f}<extra></extra>'
+                hovertemplate=f'<b>%{{label}}</b><br>Cost: {currency_symbol}%{{customdata[0]:,.2f}}<extra></extra>'
             )
             
             fig_treemap.update_layout(
@@ -305,13 +332,11 @@ def main():
                 width=800
             )
             
-            # Display the treemap
             st.plotly_chart(fig_treemap, use_container_width=True)
 
-            # Add a table view of the data
+            # Display detailed table view
             st.subheader("Detailed Holiday Plans")
             
-            # Prepare data for the table
             table_data = []
             for plan in st.session_state.holiday_plans.values():
                 table_data.append({
@@ -319,14 +344,13 @@ def main():
                     'Duration': f"{(plan['end_date'] - plan['start_date']).days + 1} days",
                     'Start Date': plan['start_date'].strftime('%Y-%m-%d'),
                     'End Date': plan['end_date'].strftime('%Y-%m-%d'),
-                    'Travel': f"${plan['travel_cost']:,.2f}",
-                    'Accommodation': f"${plan['accommodation_cost']:,.2f}",
-                    'Experiences': f"${plan['experiences_cost']:,.2f}",
-                    'Miscellaneous': f"${plan['misc_cost']:,.2f}",
-                    'Total': f"${plan['total_cost']:,.2f}"
+                    'Travel': f"{currency_symbol}{convert_currency(plan['travel_cost'], selected_currency):,.2f}",
+                    'Accommodation': f"{currency_symbol}{convert_currency(plan['accommodation_cost'], selected_currency):,.2f}",
+                    'Experiences': f"{currency_symbol}{convert_currency(plan['experiences_cost'], selected_currency):,.2f}",
+                    'Miscellaneous': f"{currency_symbol}{convert_currency(plan['misc_cost'], selected_currency):,.2f}",
+                    'Total': f"{currency_symbol}{convert_currency(plan['total_cost'], selected_currency):,.2f}"
                 })
             
-            # Create and display the table
             df_table = pd.DataFrame(table_data)
             st.dataframe(
                 df_table,
@@ -342,7 +366,6 @@ def main():
                 },
                 hide_index=True,
             )
-
     else:
         st.info("No holiday plans added yet. Start by adding your first holiday plan!")
 
