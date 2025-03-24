@@ -1,0 +1,44 @@
+{
+    "oni": {
+        "10e8d343-4270-4fcf-8e4a-7a9c1fe4af43": {
+            "name": "South Africa",
+            "start_date": "2025-05-01",
+            "end_date": "2025-05-13",
+            "travel_cost": 900.0,
+            "accommodation_cost": 1200.0,
+            "experiences_cost": 500.0,
+            "misc_cost": 500.0,
+            "total_cost": 3100.0
+        },
+        "cce6663d-74d2-4d80-b82b-0d96a5565f92": {
+            "name": "USA",
+            "start_date": "2025-05-25",
+            "end_date": "2025-05-31",
+            "travel_cost": 0.0,
+            "accommodation_cost": 0.0,
+            "experiences_cost": 1000.0,
+            "misc_cost": 500.0,
+            "total_cost": 1500.0
+        },
+        "f704309e-e824-437b-9830-d382144f4463": {
+            "name": "Germany",
+            "start_date": "2025-07-03",
+            "end_date": "2025-07-06",
+            "travel_cost": 300.0,
+            "accommodation_cost": 300.0,
+            "experiences_cost": 300.0,
+            "misc_cost": 300.0,
+            "total_cost": 1200.0
+        },
+        "a5ebbf5b-7f2a-41b3-a068-51c185b7dd83": {
+            "name": "Finland",
+            "start_date": "2025-12-03",
+            "end_date": "2025-12-07",
+            "travel_cost": 400.0,
+            "accommodation_cost": 1200.0,
+            "experiences_cost": 500.0,
+            "misc_cost": 300.0,
+            "total_cost": 2400.0
+        }
+    }
+}
